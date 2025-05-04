@@ -2,8 +2,7 @@ from flask import Flask, request, jsonify
 import mimetypes
 import base64
 import os
-from google import genai
-from google.genai import types
+import google.generativeai as genai  # ✅ this avoids the naming conflict
 
 app = Flask(__name__)
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
@@ -13,25 +12,17 @@ def generate_image():
     data = request.get_json()
     prompt = data.get("prompt", "Show me something awesome")
 
-    client = genai.Client()
-    contents = [
-        types.Content(role="user", parts=[types.Part.from_text(text=prompt)])
-    ]
-    config = types.GenerateContentConfig(response_modalities=["image", "text"])
+    client = genai.GenerativeModel("gemini-2.0-flash-exp-image-generation")
+    response = client.generate_content(prompt, stream=True)
 
-    for chunk in client.models.generate_content_stream(
-        model="gemini-2.0-flash-exp-image-generation",
-        contents=contents,
-        config=config
-    ):
-        if chunk.candidates:
-            for candidate in chunk.candidates:
-                for part in candidate.content.parts:
-                    if part.inline_data:
-                        encoded = base64.b64encode(part.inline_data.data).decode()
-                        return jsonify({
-                            "mimeType": part.inline_data.mime_type,
-                            "data": encoded,
-                            "fileExtension": mimetypes.guess_extension(part.inline_data.mime_type)
-                        })
+    for chunk in response:
+        if chunk.parts:
+            for part in chunk.parts:
+                if hasattr(part, "inline_data"):
+                    encoded = base64.b64encode(part.inline_data.data).decode()
+                    return jsonify({
+                        "mimeType": part.inline_data.mime_type,
+                        "data": encoded,
+                        "fileExtension": mimetypes.guess_extension(part.inline_data.mime_type)
+                    })
     return jsonify({"error": "No image generated"}), 400
