@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 import mimetypes
 import base64
 import os
-import google.generativeai as genai  # ✅ this avoids the naming conflict
+import google.generativeai as genai  # ✅ avoids Render's import conflict
 
 app = Flask(__name__)
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
@@ -26,3 +26,8 @@ def generate_image():
                         "fileExtension": mimetypes.guess_extension(part.inline_data.mime_type)
                     })
     return jsonify({"error": "No image generated"}), 400
+
+# 🔥 Important: Bind to Render's assigned port
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
